@@ -10,6 +10,7 @@ import (
 
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -26,12 +27,13 @@ var testFlag = flag.Bool("test", false, "Print test summary at end.")
 
 var scriptName string
 
-func saveArgvStarting(fr *tcl.Frame, i int) {
+func saveArgvStarting(fr *tcl.Frame, n int) {
 	argv := []tcl.T{}
-	for _, a := range flag.Args() {
-		argv = append(argv, tcl.MkString(a))
+	for i, a := range flag.Args() {
+		if i >= n {
+			argv = append(argv, tcl.MkString(a))
+		}
 	}
-	fr.SetVar("argv", tcl.MkList(argv)) // Deprecated: argv
 	fr.SetVar("Argv", tcl.MkList(argv)) // New: Argv
 }
 
@@ -57,8 +59,8 @@ func Main() {
 		}
 	}
 
-	if cFlag != nil && *cFlag != "" {
-		saveArgvStarting(fr, 1)
+	if *cFlag != "" {
+		saveArgvStarting(fr, 0)
 		fr.Eval(tcl.MkString(*cFlag))
 		goto End
 	}
@@ -87,7 +89,7 @@ func Main() {
 
 		rl, err := readline.NewEx(&readline.Config{
 			Prompt:          "% ",
-			HistoryFile:     filepath.Join(home, ".tcl.history"),
+			HistoryFile:     filepath.Join(home, ".tcl67.history"),
 			InterruptPrompt: "*SIGINT*",
 			EOFPrompt:       "*EOF*",
 			// AutoComplete:    completer,
@@ -100,13 +102,11 @@ func Main() {
 		defer rl.Close()
 
 		for {
-			fmt.Fprint(os.Stderr, "tcl% ") // Prompt to stderr.
 			line, err := rl.Readline()
 			if err != nil {
-				if err.Error() == "EOF" { // TODO: better way?
-					goto End
+				if err != io.EOF {
+					fmt.Fprintf(os.Stderr, "*** ERROR in Readline: %s\n", err.Error())
 				}
-				fmt.Fprintf(os.Stderr, "ERROR in Readline: %s\n", err.Error())
 				goto End
 			}
 			result := EvalStringOrPrintError(fr, string(line))
