@@ -1241,11 +1241,9 @@ func cmdHash(fr *Frame, argv []T) T {
 
 func cmdHGet(fr *Frame, argv []T) T {
 	hash, key := Arg2(argv)
-	h, mu := hash.Hash()
+	h := hash.Hash()
 	k := key.String()
-	mu.Lock()
 	value, ok := h[k]
-	mu.Unlock()
 	if !ok {
 		panic(Sprintf("Hash does not contain key: %q", k))
 	}
@@ -1254,38 +1252,32 @@ func cmdHGet(fr *Frame, argv []T) T {
 
 func cmdHSet(fr *Frame, argv []T) T {
 	hash, key, value := Arg3(argv)
-	h, mu := hash.Hash()
+	h := hash.Hash()
 	k := key.String()
-	mu.Lock()
 	h[k] = value
-	mu.Unlock()
 	return value
 }
 
 func cmdHDel(fr *Frame, argv []T) T {
 	hash, key := Arg2(argv)
-	h, mu := hash.Hash()
+	h := hash.Hash()
 	k := key.String()
-	mu.Lock()
 	delete(h, k)
-	mu.Unlock()
 	return Empty
 }
 
-func hashKeys(h Hash, mu *sync.Mutex) []T {
-	mu.Lock()
+func hashKeys(h Hash) []T {
 	z := make([]T, 0, len(h))
 	for _, k := range SortedKeysOfHash(h) {
 		z = append(z, MkString(k))
 	}
-	mu.Unlock()
 	return z
 }
 
 func cmdHKeys(fr *Frame, argv []T) T {
 	hash := Arg1(argv)
-	h, mu := hash.Hash()
-	return MkList(hashKeys(h, mu))
+	h := hash.Hash()
+	return MkList(hashKeys(h))
 }
 
 // Tcl requires integers, but our base numeric value is float64.
@@ -1722,15 +1714,13 @@ func cmdArraySet(fr *Frame, argv []T) T {
 func cmdArrayGet(fr *Frame, argv []T) T {
 	varName := Arg1(argv) // TODO: optional glob.
 	t := fr.GetVar(varName.String())
-	h, mu := t.Hash()
-	mu.Lock()
+	h := t.Hash()
 
 	var z []T
 	for _, k := range SortedKeysOfHash(h) {
 		z = append(z, MkString(k))
 		z = append(z, h[k])
 	}
-	mu.Unlock()
 	return MkList(z)
 }
 func cmdArraySize(fr *Frame, argv []T) T {
@@ -1742,10 +1732,8 @@ func cmdArraySize(fr *Frame, argv []T) T {
 	}
 
 	t := fr.GetVar(s)
-	h, mu := t.Hash()
-	mu.Lock()
+	h := t.Hash()
 	n := len(h)
-	mu.Unlock()
 	return MkInt(int64(n))
 }
 
@@ -1764,8 +1752,8 @@ func cmdArrayExists(fr *Frame, argv []T) T {
 func cmdArrayNames(fr *Frame, argv []T) T {
 	hashName := Arg1(argv)
 	t := fr.GetVar(hashName.String())
-	h, mu := t.Hash()
-	return MkList(hashKeys(h, mu))
+	h := t.Hash()
+	return MkList(hashKeys(h))
 }
 
 var infoEnsemble = []EnsembleItem{
@@ -1833,9 +1821,7 @@ func cmdInfoExists(fr *Frame, argv []T) T {
 		}
 		key := s[p+1 : len(s)-1]
 
-		h.Mu.Lock()
 		_, ok = h.h[key]
-		h.Mu.Unlock()
 		return MkBool(ok)
 	}
 

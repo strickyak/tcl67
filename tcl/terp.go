@@ -10,7 +10,6 @@ import (
 	R "reflect"
 	"runtime"
 	"strings"
-	"sync"
 )
 
 var Debug [256]bool
@@ -57,7 +56,6 @@ type MacroNode struct {
 // and a new one is created for each proc or yproc invocation
 // (but not for every Command; non-proc commands do not make Frames).
 type Frame struct {
-	Mu   sync.Mutex
 	Vars Scope // local variables
 	Cred Hash  // credentials
 
@@ -69,60 +67,15 @@ type Frame struct {
 
 // Global holds the global state of an interpreter,
 // mainly the Commands and global variables.
-// It also knows if a Mixin is being defined.
-// Mixins should be defined by main thread,
-// after all overridable procs are defined,
-// but before other goroutines start.
 type Global struct {
 	Cmds   CmdScope
 	Macros MacroScope
 	Fr     Frame // global scope
 
-	MixinSerial         int    // Increment before defining Mixin.
-	MixinNumberDefining int    // Set nonzero while defining Mixin.
-	MixinNameDefining   string // Set nonempty while defining Mixin.
-	IsSafe              bool   // Set true for safe subinterpreter.
-	Logger              *log.Logger
-	Verbosity           int    // Log if message level <= verbosity.
-	LogName             string // for logging
-
-	Mu sync.Mutex
-}
-
-// Clone produces a copy of the receiving interpreter.
-func (g *Global) Clone() *Global {
-	z := &Global{
-		Cmds:   make(CmdScope),
-		Macros: make(MacroScope),
-		Fr: Frame{
-			Vars: make(Scope),
-		},
-	}
-
-	z.Fr.G = z
-
-	// Lock Frame before Global.
-	// That is, start low at leaves in tree, lock upward towards root.
-	// TODO:  Why a g.Mu, instead of it's g.Fr.Mu?
-	g.Fr.Mu.Lock()
-	defer g.Fr.Mu.Unlock()
-
-	g.Mu.Lock()
-	defer g.Mu.Unlock()
-
-	for k, v := range g.Cmds {
-		z.Cmds[k] = v
-	}
-
-	for k, v := range g.Macros {
-		z.Macros[k] = v
-	}
-
-	for k, loc := range g.Fr.Vars {
-		z.Fr.SetVar(k, loc.Get())
-	}
-
-	return z
+	IsSafe    bool // Set true for safe subinterpreter.
+	Logger    *log.Logger
+	Verbosity int    // Log if message level <= verbosity.
+	LogName   string // for logging
 }
 
 // StatusCode are the same integers as Tcl/C uses for return, break, and continue.
@@ -259,9 +212,7 @@ func (fr *Frame) HasVar(name string) bool {
 	sc := fr.GetVarScope(name)
 	var loc Loc
 	var ok bool
-	fr.Mu.Lock()
 	loc, ok = sc[name]
-	fr.Mu.Unlock()
 	if !ok {
 		return false
 	}
@@ -272,9 +223,7 @@ func (fr *Frame) GetVar(name string) T {
 	sc := fr.GetVarScope(name)
 	var loc Loc
 	var ok bool
-	fr.Mu.Lock()
 	loc, ok = sc[name]
-	fr.Mu.Unlock()
 	if !ok {
 		panic(Sprintf("Variable %q does not exist; scope contains %v", name, sc))
 	}
@@ -298,13 +247,11 @@ func (fr *Frame) SetVar(name string, x T) {
 		return
 	}
 	sc := fr.GetVarScope(name)
-	fr.Mu.Lock()
 	ptr := sc[name]
 	if ptr == nil {
 		ptr = new(Slot)
 		sc[name] = ptr
 	}
-	fr.Mu.Unlock()
 	ptr.Set(x)
 }
 
@@ -314,9 +261,7 @@ func (p *UpSlot) Set(t T)   { p.Fr.SetVar(p.RemoteName, t) }
 
 func (fr *Frame) DefineUpVar(name string, remFr *Frame, remName string) {
 	sc := fr.GetVarScope(name)
-	fr.Mu.Lock()
 	sc[name] = &UpSlot{Fr: remFr, RemoteName: remName}
-	fr.Mu.Unlock()
 }
 
 func (fr *Frame) FindCommand(name T, callSuper bool) Command {
@@ -324,9 +269,7 @@ func (fr *Frame) FindCommand(name T, callSuper bool) Command {
 	cmdName := name.String()
 
 	var fn Command
-	fr.Mu.Lock()
 	cmdNode, ok := fr.G.Cmds[cmdName]
-	fr.Mu.Unlock()
 	if ok {
 		if cmdNode == nil {
 			ok = false

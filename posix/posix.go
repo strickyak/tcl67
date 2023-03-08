@@ -9,9 +9,7 @@ import (
 	"os"
 	"os/exec"
 	R "reflect"
-	// purify // "runtime/pprof"
 	"strings"
-	"sync"
 )
 
 type terpFile struct {
@@ -71,7 +69,7 @@ func (t *terpFile) List() []T {
 func (t *terpFile) HeadTail() (hd, tl T) {
 	return MkList(t.List()).HeadTail()
 }
-func (t *terpFile) Hash() (Hash, *sync.Mutex) {
+func (t *terpFile) Hash() Hash {
 	panic("a terpFile is not a Hash")
 }
 func (t *terpFile) GetAt(key T) T {
