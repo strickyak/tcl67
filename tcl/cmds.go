@@ -469,18 +469,6 @@ func cmdSay(fr *Frame, argv []T) T {
 	return MkList(args) // "say" acts like "list"
 }
 
-/*
-func cmdSuper(fr *Frame, argv []T) T {
-	name, _ := Arg1v(argv)
-	if fr.MixinLevel < 1 {
-		panic("cannot super from non-mixin")
-	}
-	fn := fr.FindCommand(name, true) // true: Call Super.
-	z := fn(fr, argv[1:])
-	return z
-}
-*/
-
 func cmdMacro(fr *Frame, argv []T) T {
 	name, aa, body := Arg3(argv)
 	nameStr := name.String()
@@ -567,12 +555,6 @@ func purifiedProc(fr *Frame, argv []T) T {
 				}
 				if rs, ok := r.(string); ok {
 					rs = rs + "\n\tin proc " + argv2[0].String()
-					if fr2.MixinLevel > 0 {
-						rs = rs + Sprintf("\n\t\t(caller's MixinLevel=%d)", fr2.MixinLevel)
-					}
-					if fr2.MixinName != "" {
-						rs = rs + Sprintf("\n\t\t(caller's MixinName=%q)", fr2.MixinName)
-					}
 					// TODO: Require debug level for the args.
 					for ai, ae := range argv2[1:] {
 						as := ae.String()
@@ -624,10 +606,6 @@ func purifiedProc(fr *Frame, argv []T) T {
 
 		fr3 := fr2.NewFrame()
 		fr3.DebugName = nameStr
-		/*
-			fr3.MixinLevel = captureMixinNumberDefining
-			fr3.MixinName = captureMixinNameDefining
-		*/
 
 		if varargs {
 			for i, arg := range astrs[:len(astrs)-1] {
@@ -657,296 +635,13 @@ func purifiedProc(fr *Frame, argv []T) T {
 
 	// Install base command.
 	node := &CmdNode{
-		Fn:         cmd,
-		MixinLevel: fr.G.MixinNumberDefining,
-		MixinName:  fr.G.MixinNameDefining,
-		Next:       nil,
+		Fn:   cmd,
+		Next: nil,
 	}
 	fr.G.Cmds[nameStr] = node
 
 	return Empty
 }
-
-/* purify
-func procOrYProc(fr *Frame, argv []T, generating bool) T {
-	name, aa, body := Arg3(argv)
-	nameStr := name.String()
-	alist := aa.List()
-	astrs := make([]string, len(alist))
-	dflts := make([]T, len(alist))
-	for i, arg := range alist {
-		avec := arg.List()
-		var astr string
-		switch len(avec) {
-		case 1:
-			astr = arg.String()
-		case 2:
-			astr = avec[0].String()
-			dflts[i] = avec[1]
-		default:
-			panic("procOrYProc: Formal Parameter llength is not 1 or 2")
-		}
-		if !IsLocal(astr) {
-			panic(Sprintf("Cannot use nonlocal name %q for argument in %s", astr, argv[0]))
-		}
-		astrs[i] = astr
-	}
-	n := len(alist)
-
-	// Capture this variable, so it can be used when the cmd is called.
-	captureMixinNumberDefining := fr.G.MixinNumberDefining
-	captureMixinNameDefining := fr.G.MixinNameDefining
-
-	// If the proc is being defined by a mixin, put it in the same mixin.
-	if fr.MixinLevel > 0 {
-		captureMixinNumberDefining = fr.MixinLevel
-		captureMixinNameDefining = fr.MixinName
-	}
-	var longMixinName string
-	if captureMixinNumberDefining > 0 {
-		longMixinName = captureMixinNameDefining + "~" + nameStr
-	}
-
-	compiled := CompileSequence(fr, body.String())
-
-	cmd := func(fr2 *Frame, argv2 []T) (result T) {
-		if captureMixinNumberDefining > 0 {
-			argv2[0] = MkString(longMixinName)
-		}
-		// If generating, not enough happens in this func (as opposed to
-		// in the goroutine) to encounter errors.  So this defer/recover is only
-		// for the normal, nongenerating case.
-		if !generating {
-			defer func() {
-				if r := recover(); r != nil {
-					if j, ok := r.(Jump); ok {
-						switch j.Status {
-						case RETURN:
-							result = j.Result
-							return
-						case BREAK:
-							r = ("break command was not inside a loop")
-						case CONTINUE:
-							r = ("continue command was not inside a loop")
-						}
-					}
-					if rs, ok := r.(string); ok {
-						rs = rs + "\n\tin proc " + argv2[0].String()
-						if fr2.MixinLevel > 0 {
-							rs = rs + Sprintf("\n\t\t(caller's MixinLevel=%d)", fr2.MixinLevel)
-						}
-						if fr2.MixinName != "" {
-							rs = rs + Sprintf("\n\t\t(caller's MixinName=%q)", fr2.MixinName)
-						}
-						// TODO: Require debug level for the args.
-						for ai, ae := range argv2[1:] {
-							as := ae.String()
-							if len(as) > 80 {
-								as = as[:80] + "..."
-							}
-							rs = rs + Sprintf("\n\t\targ:%d = %q", ai, as)
-						}
-						// TODO: Require debug level for the locals.
-						for vk, vv := range fr2.Vars {
-							vs := vv.Get().String()
-							if len(vs) > 80 {
-								vs = vs[:80] + "..."
-							}
-							rs = rs + Sprintf("\n\t\tlocal:%s = %q", vk, vs)
-						}
-						r = rs
-					}
-					panic(r) // Rethrow errors and unknown Status.
-				}
-			}()
-		}
-
-		if argv2 == nil {
-			// Debug Data, if invoked with nil argv2.
-			return MkList(argv)
-		}
-
-		var varargs bool = false
-		if len(astrs) > 0 && astrs[len(astrs)-1] == "args" {
-			// TODO: Support dflts with varargs.
-			varargs = true
-			if len(argv2) < n {
-				panic(Sprintf("%s %q expects arguments %#v but got %d", argv[0], nameStr, aa, len(argv2)))
-			}
-		} else {
-			// Handle dflts with non-varargs.
-			for p := len(argv2); p < n+1; p++ {
-				if dflts[p-1] != nil {
-					argv2 = append(argv2, dflts[p-1])
-				} else {
-					break
-				}
-			}
-
-			if len(argv2) != n+1 {
-				panic(Sprintf("%s %q expects arguments %#v but got %d", argv[0], nameStr, aa, len(argv2)))
-			}
-		}
-
-		fr3 := fr2.NewFrame()
-		fr3.DebugName = nameStr
-		fr3.MixinLevel = captureMixinNumberDefining
-		fr3.MixinName = captureMixinNameDefining
-
-		if varargs {
-			for i, arg := range astrs[:len(astrs)-1] {
-				fr3.SetVar(arg, argv2[i+1])
-			}
-
-			fr3.SetVar("args", MkList(argv2[len(astrs):]))
-		} else {
-			for i, arg := range astrs {
-				fr3.SetVar(arg, argv2[i+1])
-			}
-		}
-
-		// Case "proc":
-		if !generating {
-			return compiled.Eval(fr3)
-		}
-
-		// Case "yproc":
-		ch := make(chan Either, 0)
-		z := MkGenerator(ch) // Save reader half in z.
-		fr3.WriterChan = ch  // Save writer half in frame.
-		ch = nil
-
-		go func() {
-			defer close(fr3.WriterChan)
-			defer func() {
-				if r := recover(); r != nil {
-					var ei Either
-					ei.Bad = Sprintf("%v", r)
-					if j, ok := r.(Jump); ok {
-						switch j.Status {
-						case RETURN:
-							if !j.Result.IsEmpty() {
-								ei.Bad = "yproc command: cannot return a value"
-							}
-							return
-						case BREAK:
-							ei.Bad = "yproc command: break command was not inside a loop"
-						case CONTINUE:
-							ei.Bad = "yproc command: continue command was not inside a loop"
-						default:
-							ei.Bad = Sprintf("yproc command: unknown Jump Status: %d", int(j.Status))
-						}
-					}
-					if rs, ok := r.(string); ok {
-						r = rs + "\n\tin yproc " + argv[0].String()
-					}
-					fr3.WriterChan <- ei
-				}
-			}()
-			compiled.Eval(fr3)
-		}()
-
-		return z
-	}
-
-	builtin := Safes[nameStr]
-	if builtin != nil {
-		panic(Sprintf("cannot redefine a builtin: %q", nameStr))
-	}
-
-	existingNode := fr.G.Cmds[nameStr]
-
-	if IsGlobal(nameStr) {
-		// Procs that behave as Mixins have Capital Initial Letter.
-
-		node := &CmdNode{
-			Fn:         cmd,
-			MixinLevel: fr.G.MixinNumberDefining,
-			MixinName:  fr.G.MixinNameDefining,
-			Next:       existingNode,
-		}
-		fr.G.Cmds[nameStr] = node
-
-		// Debug Dump
-		node = fr.G.Cmds[nameStr]
-		for node != nil {
-			node = node.Next
-		}
-	} else {
-		if existingNode != nil {
-			panic(Sprintf("Name already defined at base level; cannot redefine: %q", nameStr))
-		}
-		if captureMixinNumberDefining == 0 {
-			// Install base command.
-			node := &CmdNode{
-				Fn:         cmd,
-				MixinLevel: fr.G.MixinNumberDefining,
-				MixinName:  fr.G.MixinNameDefining,
-				Next:       nil,
-			}
-			fr.G.Cmds[nameStr] = node
-		} else {
-			// Install as Long Name below.
-		}
-	}
-
-	if captureMixinNumberDefining > 0 {
-		// TODO: Check that long name is unique.
-		newNode := &CmdNode{
-			Fn:         cmd,
-			MixinLevel: captureMixinNumberDefining,
-			MixinName:  captureMixinNameDefining,
-			Next:       nil,
-		}
-		fr.G.Cmds[longMixinName] = newNode
-	}
-
-	return Empty
-}
-*/
-
-/* purify
-func cmdMixin(fr *Frame, argv []T) T {
-	name, body := Arg2(argv)
-	if fr.G.MixinNumberDefining > 0 {
-		panic("already defining a mixin: " + fr.G.MixinNameDefining)
-	}
-
-	defer func() {
-		fr.G.MixinNumberDefining = 0
-		fr.G.MixinNameDefining = ""
-	}()
-
-	num := fr.G.MintMixinSerial()
-	fr.G.MixinNumberDefining = num
-	fr.G.MixinNameDefining = name.String()
-
-	return fr.Eval(body)
-}
-*/
-
-/* purify
-func cmdYield(fr *Frame, argv []T) T {
-	if len(argv) == 2 {
-		// Write exactly 1 arg on the channel.
-		fr.WriterChan <- Either{Good: argv[1]}
-		return argv[1]
-	}
-
-	// Write more than 1 arg in a list.
-	z := MkList(argv[1:])
-	fr.WriterChan <- Either{Good: z}
-	return z
-}
-*/
-
-// TODO: "ls" is to inspect objects and get help on commands.
-/* purify
-func cmdLs(fr *Frame, argv []T) T {
-	println("ls: len cred=", len(fr.Cred))
-	return MkString("ls Done.")
-}
-*/
 
 func cmdSLen(fr *Frame, argv []T) T {
 	a := Arg1(argv)
@@ -957,18 +652,6 @@ func cmdLLen(fr *Frame, argv []T) T {
 	a := Arg1(argv)
 	return MkInt(int64(len(a.List())))
 }
-
-/* purify
-func cmdNull(fr *Frame, argv []T) T {
-	a := Arg1(argv)
-	return MkBool(a.IsEmpty())
-}
-
-func cmdNotNull(fr *Frame, argv []T) T {
-	a := Arg1(argv)
-	return MkBool(!a.IsEmpty())
-}
-*/
 
 func cmdList(fr *Frame, argv []T) T {
 	return MkList(argv[1:])
@@ -1103,7 +786,7 @@ func cmdLSort(fr *Frame, argv []T) T {
 		} else if strings.HasPrefix(opt, "-r") {
 			c.asReal = true
 			opts = opts[1:]
-		} else if strings.HasPrefix(opt, "-de") {
+		} else if strings.HasPrefix(opt, "-d") {
 			c.descending = true
 			opts = opts[1:]
 		} else if strings.HasPrefix(opt, "-ind") && len(opts) > 1 {
@@ -1136,19 +819,6 @@ func cmdSAt(fr *Frame, argv []T) T {
 	i := j.Int()
 	return MkString(s.String()[i : i+1])
 }
-
-/*
-func cmdHttpHandler(fr *Frame, argv []T) T {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		v := make([]T, len(argv)-1)
-		copy(v, argv[1:])
-		v = append(v, MkT(w))
-		v = append(v, MkT(r))
-		_ = fr.Apply(v)
-	}
-	return MkT(fn)
-}
-*/
 
 func cmdForEach(fr *Frame, argv []T) T {
 	varLT, list, body := Arg3(argv)
@@ -1617,81 +1287,6 @@ func cmdHKeys(fr *Frame, argv []T) T {
 	h, mu := hash.Hash()
 	return MkList(hashKeys(h, mu))
 }
-
-/* purify
-type SafeSubInterp struct {
-	fr *Frame // Private member.
-}
-
-func cmdInterp(fr *Frame, argv []T) T {
-	Arg0(argv)
-
-	z := &SafeSubInterp{
-		fr: NewSafeInterpreter(),
-	}
-	return MkT(z)
-}
-
-func (ssi *SafeSubInterp) Alias(masterFr *Frame, newcmdnameStr string, prefix T) {
-	cmd := func(slaveFr *Frame, argv2 []T) (result T) {
-		defer func() {
-			if r := recover(); r != nil {
-				if j, ok := r.(Jump); ok {
-					switch j.Status {
-					case RETURN:
-						r = "return reached in an interp-alias"
-					case BREAK:
-						r = "break command was not inside a loop, in an interp-alias"
-					case CONTINUE:
-						r = "continue command was not inside a loop, in an interp-alias"
-					}
-				}
-				if rs, ok := r.(string); ok {
-					r = rs + "\n\tin alias " + argv2[0].String()
-				}
-				panic(r) // Rethrow errors and unknown Status.
-			}
-		}()
-
-		newFr := slaveFr.NewFrame()
-		//WHYNOT// newFr.Prev = slaveFr.Prev  // Change so the Alias CmdNode does not show up.
-		newFr.DebugName = "Alias:" + newcmdnameStr + ":" + slaveFr.DebugName
-		newFr.G = masterFr.G
-		return EvalOrApplyLists(newFr, []T{prefix, MkList(argv2[1:])})
-	}
-
-	if _, ok := ssi.fr.G.Cmds[newcmdnameStr]; ok {
-		panic("The command already exists within that subinterp.")
-	}
-	node := &CmdNode{
-		Fn: cmd,
-	}
-	ssi.fr.G.Cmds[newcmdnameStr] = node
-}
-
-func (ssi *SafeSubInterp) Eval(script T) T {
-	return ssi.fr.Eval(script)
-}
-
-func (ssi *SafeSubInterp) Clone() *SafeSubInterp {
-	cloned := ssi.fr.G.Clone()
-	z := &SafeSubInterp{
-		fr: &cloned.Fr,
-	}
-	return z
-}
-
-func (ssi *SafeSubInterp) CopyCredFrom(fr *Frame) {
-	if fr.Cred != nil {
-		if ssi.fr.Cred == nil {
-			ssi.fr.Cred = make(Hash)
-		}
-		for k, v := range fr.Cred {
-			ssi.fr.Cred[k] = v
-		}
-	}
-}
-*/
 
 // Tcl requires integers, but our base numeric value is float64.
 func cmdIncr(fr *Frame, argv []T) T {
@@ -2303,20 +1898,6 @@ func cmdJoin(fr *Frame, argv []T) T {
 	return MkString(buf.String())
 }
 
-/* purify
-func cmdDropNull(fr *Frame, argv []T) T {
-	listT := Arg1(argv)
-	list := listT.List()
-	z := make([]T, 0, len(list))
-	for _, e := range list {
-		if !e.IsEmpty() {
-			z = append(z, e)
-		}
-	}
-	return MkList(z)
-}
-*/
-
 func cmdSubst(fr *Frame, argv []T) T {
 	args := Arg0v(argv)
 
@@ -2342,24 +1923,6 @@ func cmdSubst(fr *Frame, argv []T) T {
 
 	return MkString(fr.SubstString(args[0].String(), flags))
 }
-
-// Getting cred is safe.  Setting it is unsafe.  This is the getter.
-// Returns Empty if none.
-/* purify
-func cmdCred(fr *Frame, argv []T) T {
-	name := Arg1(argv)
-	key := name.String()
-
-	if _, ok := fr.Cred[key]; !ok {
-		return Empty
-	}
-	z := fr.Cred[key]
-	if z == nil {
-		return Empty
-	}
-	return z
-}
-*/
 
 // Usage: log <level> <messages>...
 // Creates a new stderr logger, if Global has no logger yet.
@@ -2438,20 +2001,12 @@ func init() {
 	Safes["macro"] = cmdMacro
 	Safes["proc"] = cmdProc
 
-	// purify // Safes["yproc"] = cmdYProc
-	// purify // Safes["yield"] = cmdYield
-
-	// purify // Safes["mixin"] = cmdMixin
-	// purify // Safes["ls"] = cmdLs
-	// purify // Safes["null"] = cmdNull
-	// purify // Safes["notnull"] = cmdNotNull
 	Safes["list"] = cmdList
 	Safes["lindex"] = cmdLIndex
 	Safes["lrange"] = cmdLRange
 	Safes["lsort"] = cmdLSort
 	Safes["lreverse"] = cmdLReverse
 	Safes["llength"] = cmdLLen
-	// purify // Safes["http_handler"] = cmdHttpHandler
 	Safes["foreach"] = cmdForEach
 	Safes["while"] = cmdWhile
 	Safes["catch"] = cmdCatch
@@ -2462,7 +2017,6 @@ func init() {
 	Safes["set"] = cmdSet
 	Safes["global"] = cmdGlobal
 	Safes["upvar"] = cmdUpVar
-	// prufiy // Safes["super"] = cmdSuper
 	Safes["return"] = cmdReturn
 	Safes["break"] = cmdBreak
 	Safes["continue"] = cmdContinue
@@ -2474,7 +2028,6 @@ func init() {
 	Safes["hdel"] = cmdHDel
 	Safes["hkeys"] = cmdHKeys
 
-	// purify // Safes["interp"] = cmdInterp
 	Safes["incr"] = cmdIncr
 	Safes["append"] = cmdAppend
 	Safes["lappend"] = cmdLAppend
@@ -2485,9 +2038,7 @@ func init() {
 	Safes["array"] = MkEnsemble(arrayEnsemble)
 	Safes["split"] = cmdSplit
 	Safes["join"] = cmdJoin
-	// purify // Safes["dropnull"] = cmdDropNull
 	Safes["subst"] = cmdSubst
-	// Safes["cred"] = cmdCred
 	Safes["log"] = cmdLog
 	Safes["usage"] = cmdUsage // TODO?
 	Safes["time"] = cmdTime

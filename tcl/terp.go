@@ -42,10 +42,8 @@ type MacroScope map[string]*MacroNode
 // at different mixin levels, highest level first.
 // A non-mixin command has level 0 and only one CmdNode.
 type CmdNode struct {
-	Fn         Command
-	MixinLevel int
-	MixinName  string
-	Next       *CmdNode
+	Fn   Command
+	Next *CmdNode
 }
 
 // Macros (for now) are not defined by mixins; they must be global.
@@ -65,10 +63,6 @@ type Frame struct {
 
 	Prev *Frame
 	G    *Global
-
-	WriterChan chan<- Either // for yproc & yield
-	MixinLevel int
-	MixinName  string
 
 	DebugName string
 }
@@ -334,32 +328,10 @@ func (fr *Frame) FindCommand(name T, callSuper bool) Command {
 	cmdNode, ok := fr.G.Cmds[cmdName]
 	fr.Mu.Unlock()
 	if ok {
-		if callSuper {
-			maxMixinLevel := fr.MixinLevel - 1
-			if maxMixinLevel < 0 {
-				panic("cannot callSuper from non-mixin")
-			}
-			for cmdNode != nil && cmdNode.MixinLevel > maxMixinLevel {
-				cmdNode = cmdNode.Next
-			}
-		}
 		if cmdNode == nil {
 			ok = false
 		} else {
 			fn = cmdNode.Fn
-		}
-	}
-
-	// Mixin Local Commands:
-	if !ok && fr.MixinLevel > 0 && !IsGlobal(cmdName) {
-		// Use long name for mixin local fn.
-		localCmdName := fr.MixinName + "~" + cmdName
-		var localNode *CmdNode
-		fr.Mu.Lock()
-		localNode, ok = fr.G.Cmds[localCmdName]
-		fr.Mu.Unlock()
-		if ok {
-			fn = localNode.Fn // Should be singleton.
 		}
 	}
 
@@ -395,12 +367,6 @@ func (fr *Frame) Apply(argv []T) T {
 					rs = rs + Sprintf(" %q", as)
 				}
 
-				if fr.MixinLevel > 0 {
-					rs = rs + Sprintf("\n\t\t(frame's MixinLevel=%d)", fr.MixinLevel)
-				}
-				if len(fr.MixinName) > 0 {
-					rs = rs + Sprintf("\n\t\t(frame's MixinName=%q)", fr.MixinName)
-				}
 				r = rs
 			}
 			panic(r)

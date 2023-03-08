@@ -60,14 +60,6 @@ type terpList struct { // Implements T.
 	l []T
 }
 
-// terpValue is a Tcl value holding a Go reflect.Value.
-// It is a handle to non-Tcl Go objets.
-/* purify
-type terpValue struct { // Implements T.
-	v R.Value
-}
-*/
-
 // *terpMulti is a Tcl value holding several pre-compiled representations,
 // which were parsed from a string.
 type terpMulti struct { // Implements T.
@@ -168,14 +160,6 @@ func MkStringList(a []string) terpList {
 	return terpList{l: z}
 }
 
-/*
-purify
-
-	func MkValue(a R.Value) terpValue {
-		MkValueCounter.Incr()
-		return terpValue{v: a}
-	}
-*/
 func MaybeCompileSequence(fr *Frame, s string) (seq *PSeq) {
 	defer func() {
 		recover()
@@ -333,9 +317,7 @@ func MkT(a interface{}) T {
 	case R.UnsafePointer:
 	}
 
-	// Everything else becomes a terpValue
-	// purify return MkValue(v)
-	log.Panicf("purify: no MkValue for ((%T)) %#v", v, v)
+	log.Panicf("cannot MkT for ((%T)) %#v", v, v)
 	panic(0)
 }
 
@@ -833,89 +815,6 @@ func (t terpList) Apply(fr *Frame, args []T) T { return fr.Apply(args) }
 
 // terpValue implements T
 
-/* purify
-func (t terpValue) ChirpFlavor() string { return "Value" }
-func (t terpValue) Raw() interface{} {
-	return t.v.Interface()
-}
-func (t terpValue) String() string {
-	s := Sprintf("Value:%s:%s", t.v.Kind(), t.v.Type())
-	return s
-}
-func (t terpValue) ListElementString() string {
-	return ToListElementString(t.String())
-}
-func (t terpValue) IsQuickString() bool {
-	return false
-}
-func (t terpValue) IsQuickList() bool {
-	return false
-}
-func (t terpValue) IsQuickHash() bool {
-	return false
-}
-func (t terpValue) Bool() bool {
-	panic("terpValue cannot be used as Bool")
-}
-func (t terpValue) IsEmpty() bool {
-	switch t.v.Kind() {
-	// IsNil() can only be called on this 6 Kinds:
-	case R.Func, R.Interface, R.Ptr, R.Slice, R.Map, R.Chan:
-		return t.v.IsNil()
-	}
-	// Strings, numbers, and bools should not be in terpValue so we don't look for emptiness or zeroness in them.
-	return false
-}
-
-var Float64Type R.Type = R.TypeOf(*new(float64))
-var Int64Type R.Type = R.TypeOf(*new(int64))
-var Uint64Type R.Type = R.TypeOf(*new(uint64))
-
-func (t terpValue) Float() float64 {
-	return t.v.Convert(Float64Type).Interface().(float64)
-}
-func (t terpValue) Int() int64 {
-	return t.v.Convert(Int64Type).Interface().(int64)
-}
-func (t terpValue) Uint() uint64 {
-	return t.v.Convert(Uint64Type).Interface().(uint64)
-}
-func (t terpValue) IsQuickInt() bool {
-	return t.v.Type().ConvertibleTo(Int64Type)
-}
-func (t terpValue) IsQuickNumber() bool {
-	return t.v.Type().ConvertibleTo(Float64Type)
-}
-func (t terpValue) IsPreservedByList() bool { return false }
-func (t terpValue) List() []T {
-	switch t.v.Kind() {
-
-	/-
-		// Treat Pointer and Interface as a singleton list.
-		case R.Ptr, R.Interface:
-			x := MkT(t.v.Elem().Interface())
-			return []T{x}
-	-/
-
-	// Slices and Arrays are naturally lists (unless they're bytes)
-	case R.Slice, R.Array:
-		if t.v.Type().Elem().Kind() == R.Uint8 {
-			panic(Sprintf("Slice of Uint8 should not be in terpValue: %q", string(t.v.Interface().([]byte))))
-		}
-		n := t.v.Len()
-		z := make([]T, n)
-		for i := 0; i < n; i++ {
-			z[i] = MkT(t.v.Index(i).Interface())
-		}
-		return z
-	}
-	panic("terpValue: not a list")
-}
-func (t terpValue) HeadTail() (hd, tl T) {
-	return MkList(t.List()).HeadTail()
-}
-*/
-
 ///////////////////////////////////////////////////////////////////////
 // *terpMulti implements T
 
@@ -1042,12 +941,6 @@ func (t terpMulti) Apply(fr *Frame, args []T) T {
 						rs = rs + Sprintf(" %q", as)
 					}
 
-					if fr.MixinLevel > 0 {
-						rs = rs + Sprintf("\n\t\t(frame's MixinLevel=%d)", fr.MixinLevel)
-					}
-					if len(fr.MixinName) > 0 {
-						rs = rs + Sprintf("\n\t\t(frame's MixinName=%q)", fr.MixinName)
-					}
 					r = rs
 				}
 				panic(r)
@@ -1111,31 +1004,7 @@ func ToListElementString(s string) string {
 	return s
 }
 
-/* purify
-func (t terpValue) Hash() (Hash, *sync.Mutex) {
-	panic("A GoValue is not a Hash")
-}
-func (t terpValue) GetAt(key T) T {
-	panic("terpValue is not a Hash")
-}
-func (t terpValue) PutAt(value T, key T) {
-	panic("terpValue is not a Hash")
-}
-func (t terpValue) QuickReflectValue() R.Value  { return t.v }
-func (t terpValue) EvalSeq(fr *Frame) T         { return Parse2EvalSeqStr(fr, t.String()) }
-func (t terpValue) EvalExpr(fr *Frame) T        { return Parse2EvalExprStr(fr, t.String()) }
-func (t terpValue) Apply(fr *Frame, args []T) T { return ApplyToReflectedValue(fr, t.v, args, 1) }
-*/
-
 ////////////////////////////////////////
-
-func (g *Global) MintMixinSerial() int {
-	g.Mu.Lock()
-	defer g.Mu.Unlock()
-
-	g.MixinSerial++
-	return g.MixinSerial
-}
 
 type EnsembleItem struct {
 	Name string
