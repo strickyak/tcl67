@@ -7,7 +7,7 @@ import (
 	// "net/http"
 	"os"
 	R "reflect"
-	"runtime/debug"
+	//"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -421,10 +421,10 @@ func cmdScan(fr *Frame, argv []T) T {
 				ptrs = append(ptrs, new(float64))
 			case R.String:
 				ptrs = append(ptrs, new(string))
-				//case R.Ptr:
-				//case R.Struct:
 			default:
 				panic("scan: Cannot handle a format")
+				//case R.Ptr:
+				//case R.Struct:
 			}
 			i++
 		}
@@ -440,7 +440,20 @@ func cmdScan(fr *Frame, argv []T) T {
 		if j == n {
 			break
 		}
-		fr.SetVar(args[j].String(), MkT(R.ValueOf(ej).Elem().Interface()))
+		var thing T
+		switch t := ej.(type) {
+		case *bool:
+			thing = MkBool(*t)
+		case *int64:
+			thing = MkInt(*t)
+		case *float64:
+			thing = MkFloat(*t)
+		case *string:
+			thing = MkString(*t)
+		default:
+			log.Panicf("Bad case in cmdScan: (%T) %#v", ej, ej)
+		}
+		fr.SetVar(args[j].String(), thing)
 	}
 	return MkInt(int64(n))
 }
@@ -929,11 +942,12 @@ func cmdCatch(fr *Frame, argv []T) (status T) {
 	defer func() {
 		if r := recover(); r != nil {
 
-			println(Sprintf("\n\n%%%%%%%%%%%%%% catch: CAUGHT EXCEPTION: %T: %v", r, r))
-			println("%%%%%%%%%%%%%% catch: CAUGHT EXCEPTION PrintStack {")
-			debug.PrintStack()
-			println("%%%%%%%%%%%%%% catch: CAUGHT EXCEPTION PrintStack }\n\n")
+			// println(Sprintf("\n\n%%%%%%%%%%%%%% catch: CAUGHT EXCEPTION: %T: %v", r, r))
+			// println("%%%%%%%%%%%%%% catch: CAUGHT EXCEPTION PrintStack {")
+			// debug.PrintStack()
+			// println("%%%%%%%%%%%%%% catch: CAUGHT EXCEPTION PrintStack }\n\n")
 
+			// Handle catching Jump objects.
 			if j, ok := r.(Jump); ok {
 				if len(varName) > 0 {
 					fr.SetVar(varName, j.Result)
@@ -941,8 +955,9 @@ func cmdCatch(fr *Frame, argv []T) (status T) {
 				status = MkInt(int64(j.Status))
 				return
 			}
+
 			if len(varName) > 0 {
-				fr.SetVar(varName, MkT(r))
+				fr.SetVar(varName, MkString(Sprintf("%v", r)))
 			}
 			status = True
 		}

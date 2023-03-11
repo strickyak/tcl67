@@ -3,8 +3,8 @@ package tcl
 import (
 	"bytes"
 	. "fmt"
-	"log"
-	R "reflect"
+	// "log"
+	// R "reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -193,115 +193,6 @@ func MkMulti(s string) *terpMulti {
 	m.command = Safes[ts.s]
 
 	return m
-}
-
-func MkT(a interface{}) T {
-	MkTCounter.Incr()
-	// Very specific type cases.
-	switch x := a.(type) {
-	case T:
-		// panic(Sprintf("Calling MkT() on a T: <%T> <%#v> %s", x, x, x.String()))
-		return x
-
-	// case R.Value:
-	// 	// Some day we'll allow this, but for now, flag an error.
-	// 	panic(Sprintf("Calling MkT() on a R.Value: <%T> <%#v> %s", x, x, x.String()))
-
-	case nil:
-		return Empty
-
-	case string:
-		if len(x) > 6 && x[:6] == "Value:" {
-			panic(666) // TODO: TEMPORARY
-		}
-	}
-
-	// Use reflection to figure it out.
-	v := R.ValueOf(a)
-	switch v.Kind() {
-
-	case R.Bool:
-		return MkBool(v.Bool())
-
-	case R.Int:
-		return MkInt(v.Int())
-	case R.Int8:
-		return MkInt(v.Int())
-	case R.Int16:
-		return MkInt(v.Int())
-	case R.Int32:
-		return MkInt(v.Int())
-	case R.Int64:
-		return MkInt(v.Int())
-
-	case R.Uint:
-		return MkUint(v.Uint())
-	case R.Uint8:
-		return MkUint(v.Uint())
-	case R.Uint16:
-		return MkUint(v.Uint())
-	case R.Uint32:
-		return MkUint(v.Uint())
-	case R.Uint64:
-		return MkUint(v.Uint())
-	case R.Uintptr:
-		return MkUint(v.Uint())
-
-	case R.Float32:
-		return MkFloat(v.Float())
-	case R.Float64:
-		return MkFloat(v.Float())
-
-	case R.Complex64:
-	case R.Complex128:
-
-	case R.Array:
-	case R.Chan:
-		if v.IsNil() {
-			return Empty
-		}
-	case R.Func:
-		if v.IsNil() {
-			return Empty
-		}
-	case R.Interface:
-		if v.IsNil() {
-			return Empty
-		}
-	case R.Map:
-		if v.IsNil() {
-			return Empty
-		}
-	case R.Ptr:
-		if v.IsNil() {
-			return Empty
-		}
-	case R.Slice:
-		if v.IsNil() {
-			return Empty
-		}
-
-		//	// This will convert slices to lists.
-		//	// Is this a good idea?
-		//	return terpValue{v: v}.terpList()
-
-		switch v.Type().Elem() {
-		case TypeT:
-			return MkList(v.Interface().([]T))
-		}
-		switch v.Type().Elem().Kind() {
-		case R.Uint8:
-			return MkString(string(v.Interface().([]byte)))
-		}
-
-	case R.String:
-		return MkString(v.String())
-	case R.Struct:
-	case R.UnsafePointer:
-	}
-
-	log.Panicf("cannot MkT for ((%T)) %#v", v, v)
-	panic(0)
 }
 
 // *terpHash implements T
