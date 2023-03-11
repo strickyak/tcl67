@@ -87,16 +87,6 @@ func ShowExprUnlessNull(expr *PExpr) string {
 	return expr.Show()
 }
 
-// terpGenerator holds a channel for reading from a generator (yproc command).
-type terpGeneratorGuts struct { // Mutable.
-	readerChan <-chan Either
-	hd         T
-	tl         T
-}
-type terpGenerator struct { // Implements T.
-	guts *terpGeneratorGuts // Pointer to mutable.
-}
-
 // *terpHash holds a Hash.
 type terpHash struct { // Implements T.
 	h Hash
@@ -108,10 +98,6 @@ func MkHash(h Hash) *terpHash {
 		return &terpHash{h: make(Hash, 4)}
 	}
 	return &terpHash{h: h}
-}
-func MkGenerator(readerChan <-chan Either) terpGenerator {
-	MkGeneratorCounter.Incr()
-	return terpGenerator{guts: &terpGeneratorGuts{readerChan: readerChan}}
 }
 func MkBool(a bool) T {
 	MkBoolCounter.Incr()
@@ -412,92 +398,6 @@ func (t *terpHash) PutAt(value T, key T) {
 func (t *terpHash) EvalSeq(fr *Frame) T         { return Parse2EvalSeqStr(fr, t.String()) }
 func (t *terpHash) EvalExpr(fr *Frame) T        { return Parse2EvalExprStr(fr, t.String()) }
 func (t *terpHash) Apply(fr *Frame, args []T) T { panic("Cannot apply terpHash as command") }
-
-// terpGenerator implements T
-
-func (t terpGenerator) ChirpFlavor() string { return "Generator" }
-func (t terpGenerator) Raw() interface{} {
-	panic("not implemented on generator (terpGenerator)")
-}
-func (t terpGenerator) String() string {
-	return Repr(t.guts)
-}
-func (t terpGenerator) Float() float64 {
-	panic("not implemented on generator (terpGenerator)")
-}
-func (t terpGenerator) Int() int64 {
-	panic("not implemented on generator (terpGenerator)")
-}
-func (t terpGenerator) Uint() uint64 {
-	panic("not implemented on generator (terpGenerator)")
-}
-func (t terpGenerator) ListElementString() string {
-	panic("not implemented on generator (terpGenerator)")
-}
-func (t terpGenerator) IsQuickString() bool {
-	return false
-}
-func (t terpGenerator) IsQuickList() bool {
-	return true
-}
-func (t terpGenerator) IsQuickHash() bool {
-	return false
-}
-func (t terpGenerator) Bool() bool {
-	panic("terpGenerator cannot be used as Bool")
-}
-func (t terpGenerator) IsEmpty() bool {
-	hd, _ := t.HeadTail()
-	return hd == nil
-}
-func (t terpGenerator) IsPreservedByList() bool { return true }
-func (t terpGenerator) IsQuickInt() bool        { return false }
-func (t terpGenerator) IsQuickNumber() bool     { return false }
-func (t terpGenerator) List() []T {
-	z := make([]T, 0, 4)
-	for {
-		ei := <-t.guts.readerChan
-		if ei.Bad != nil {
-			panic(ei.Bad)
-		}
-		if ei.Good == nil {
-			break
-		}
-		z = append(z, ei.Good)
-	}
-	return z
-}
-func (t terpGenerator) HeadTail() (hd, tl T) {
-	g := t.guts
-	if g.readerChan == nil {
-		return g.hd, g.tl
-	}
-
-	ei := <-g.readerChan
-	if ei.Bad != nil {
-		panic(ei.Bad)
-	}
-
-	g.hd = ei.Good
-	if g.hd == nil {
-		g.readerChan = nil
-		return nil, nil
-	}
-	g.tl = terpGenerator{guts: &terpGeneratorGuts{readerChan: g.readerChan}}
-	return g.hd, g.tl
-}
-func (t terpGenerator) Hash() Hash {
-	panic("terpGenerator is not a Hash")
-}
-func (t terpGenerator) GetAt(key T) T {
-	panic("terpGenerator is not a Hash")
-}
-func (t terpGenerator) PutAt(value T, key T) {
-	panic("terpGenerator is not a Hash")
-}
-func (t terpGenerator) EvalSeq(fr *Frame) T         { return Parse2EvalSeqStr(fr, t.String()) }
-func (t terpGenerator) EvalExpr(fr *Frame) T        { return Parse2EvalExprStr(fr, t.String()) }
-func (t terpGenerator) Apply(fr *Frame, args []T) T { panic("Cannot apply terpGenerator as command") }
 
 // terpInt implements T
 
@@ -1053,7 +953,6 @@ var MultiEvalSeqCompileCounter Counter
 var MultiEvalExprCounter Counter
 var MultiEvalExprCompileCounter Counter
 var MkHashCounter Counter
-var MkGeneratorCounter Counter
 var MkBoolCounter Counter
 var MkNumCounter Counter
 var MkFloatCounter Counter
@@ -1073,7 +972,6 @@ func init() {
 	MultiEvalExprCounter.Register("MultiEvalExpr")
 	MultiEvalExprCompileCounter.Register("MultiEvalExprCompile")
 	MkHashCounter.Register("MkHash")
-	MkGeneratorCounter.Register("MkGenerator")
 	MkBoolCounter.Register("MkBool")
 	MkNumCounter.Register("MkNum")
 	MkFloatCounter.Register("MkFloat")
