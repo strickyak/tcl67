@@ -375,8 +375,6 @@ func cmdFormat(fr *Frame, argv []T) T {
 				panic("format: Not enough args")
 			}
 			switch k {
-			case R.Struct:
-				vals = append(vals, args[i].Raw())
 			case R.Bool:
 				vals = append(vals, args[i].Bool())
 			case R.Int:
@@ -385,8 +383,8 @@ func cmdFormat(fr *Frame, argv []T) T {
 				vals = append(vals, args[i].Float())
 			case R.String:
 				vals = append(vals, args[i].String())
-			case R.Ptr:
-				vals = append(vals, args[i].Raw())
+			default:
+				log.Panicf("cmdFormat: bad case: %v", k)
 			}
 			i++
 		}

@@ -21,10 +21,6 @@ func MkFile(f *os.File) *terpFile {
 
 // *terpFile implements T
 
-func (t terpFile) ChirpFlavor() string { return "File" }
-func (t *terpFile) Raw() interface{} {
-	return t.f
-}
 func (t *terpFile) String() string {
 	return Sprintf("file%d", t.f.Fd())
 }

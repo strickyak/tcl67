@@ -13,8 +13,6 @@ import (
 // T is an interface to any Tcl value.
 // Use them only through these methods, or fix these methods.
 type T interface {
-	ChirpFlavor() string
-	Raw() interface{}
 	String() string
 	Float() float64
 	Int() int64
@@ -197,8 +195,6 @@ func MkMulti(s string) *terpMulti {
 
 // *terpHash implements T
 
-func (t *terpHash) ChirpFlavor() string { return "Hash" }
-func (t *terpHash) Raw() interface{}    { return t.h }
 func (t *terpHash) String() string {
 	return MkList(t.List()).String()
 }
@@ -292,10 +288,6 @@ func (t *terpHash) Apply(fr *Frame, args []T) T { panic("Cannot apply terpHash a
 
 // terpInt implements T
 
-func (t terpInt) ChirpFlavor() string { return "Float" }
-func (t terpInt) Raw() interface{} {
-	return t.i
-}
 func (t terpInt) String() string {
 	return Sprintf("%d", t.i)
 }
@@ -350,10 +342,6 @@ func (t terpInt) Apply(fr *Frame, args []T) T { return fr.Apply(args) }
 
 // terpFloat implements T
 
-func (t terpFloat) ChirpFlavor() string { return "Float" }
-func (t terpFloat) Raw() interface{} {
-	return t.f
-}
 func (t terpFloat) String() string {
 	return Sprintf("%.15g", t.f)
 }
@@ -408,10 +396,6 @@ func (t terpFloat) Apply(fr *Frame, args []T) T { return fr.Apply(args) }
 
 // terpString implements T
 
-func (t terpString) ChirpFlavor() string { return "String" }
-func (t terpString) Raw() interface{} {
-	return t.s
-}
 func (t terpString) String() string {
 	return t.s
 }
@@ -491,14 +475,6 @@ func (t terpString) Apply(fr *Frame, args []T) T { return fr.Apply(args) }
 
 // terpList implements T
 
-func (t terpList) ChirpFlavor() string { return "List" }
-func (t terpList) Raw() interface{} {
-	z := make([]interface{}, len(t.l))
-	for i, e := range t.l {
-		z[i] = e.Raw() // Recurse.
-	}
-	return z
-}
 func (t terpList) String() string {
 	z := ""
 	for k, v := range t.l {
@@ -592,10 +568,6 @@ func (t terpList) Apply(fr *Frame, args []T) T { return fr.Apply(args) }
 ///////////////////////////////////////////////////////////////////////
 // *terpMulti implements T
 
-func (t terpMulti) ChirpFlavor() string { return "Multi" }
-func (t *terpMulti) Raw() interface{} {
-	return t.s.Raw()
-}
 func (t *terpMulti) String() string {
 	return t.s.String()
 }
