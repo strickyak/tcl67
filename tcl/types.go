@@ -33,7 +33,6 @@ type T interface {
 	Hash() Hash
 	GetAt(key T) T
 	PutAt(value T, key T)
-	QuickReflectValue() R.Value
 	EvalSeq(fr *Frame) T
 	EvalExpr(fr *Frame) T
 	Apply(fr *Frame, args []T) T
@@ -410,7 +409,6 @@ func (t *terpHash) PutAt(value T, key T) {
 
 	t.h[k] = value
 }
-func (t *terpHash) QuickReflectValue() R.Value  { return InvalidValue }
 func (t *terpHash) EvalSeq(fr *Frame) T         { return Parse2EvalSeqStr(fr, t.String()) }
 func (t *terpHash) EvalExpr(fr *Frame) T        { return Parse2EvalExprStr(fr, t.String()) }
 func (t *terpHash) Apply(fr *Frame, args []T) T { panic("Cannot apply terpHash as command") }
@@ -497,7 +495,6 @@ func (t terpGenerator) GetAt(key T) T {
 func (t terpGenerator) PutAt(value T, key T) {
 	panic("terpGenerator is not a Hash")
 }
-func (t terpGenerator) QuickReflectValue() R.Value  { return InvalidValue }
 func (t terpGenerator) EvalSeq(fr *Frame) T         { return Parse2EvalSeqStr(fr, t.String()) }
 func (t terpGenerator) EvalExpr(fr *Frame) T        { return Parse2EvalExprStr(fr, t.String()) }
 func (t terpGenerator) Apply(fr *Frame, args []T) T { panic("Cannot apply terpGenerator as command") }
@@ -556,7 +553,6 @@ func (t terpInt) GetAt(key T) T {
 func (t terpInt) PutAt(value T, key T) {
 	panic("terpInt is not a Hash")
 }
-func (t terpInt) QuickReflectValue() R.Value  { return InvalidValue }
 func (t terpInt) EvalSeq(fr *Frame) T         { return Parse2EvalSeqStr(fr, t.String()) }
 func (t terpInt) EvalExpr(fr *Frame) T        { return t } // Numbers are self-Expr-eval'ing.
 func (t terpInt) Apply(fr *Frame, args []T) T { return fr.Apply(args) }
@@ -615,7 +611,6 @@ func (t terpFloat) GetAt(key T) T {
 func (t terpFloat) PutAt(value T, key T) {
 	panic("terpFloat is not a Hash")
 }
-func (t terpFloat) QuickReflectValue() R.Value  { return InvalidValue }
 func (t terpFloat) EvalSeq(fr *Frame) T         { return Parse2EvalSeqStr(fr, t.String()) }
 func (t terpFloat) EvalExpr(fr *Frame) T        { return t } // Numbers are self-Expr-eval'ing.
 func (t terpFloat) Apply(fr *Frame, args []T) T { return fr.Apply(args) }
@@ -699,7 +694,6 @@ func (t terpString) GetAt(key T) T {
 func (t terpString) PutAt(value T, key T) {
 	panic("terpString is not a Hash")
 }
-func (t terpString) QuickReflectValue() R.Value  { return InvalidValue }
 func (t terpString) EvalSeq(fr *Frame) T         { return Parse2EvalSeqStr(fr, t.String()) }
 func (t terpString) EvalExpr(fr *Frame) T        { return Parse2EvalExprStr(fr, t.String()) }
 func (t terpString) Apply(fr *Frame, args []T) T { return fr.Apply(args) }
@@ -794,7 +788,6 @@ func (t terpList) GetAt(key T) T {
 func (t terpList) PutAt(value T, key T) {
 	panic("terpList is not a Hash")
 }
-func (t terpList) QuickReflectValue() R.Value { return InvalidValue }
 
 // Bug.3
 // NO// func (t terpList) EvalSeq(fr *Frame) T         { return Parse2EvalSeqStr(fr, t.String()) }
@@ -893,7 +886,6 @@ func (t *terpMulti) GetAt(key T) T {
 func (t *terpMulti) PutAt(value T, key T) {
 	panic("terpMulti: is not a Hash")
 }
-func (t *terpMulti) QuickReflectValue() R.Value { return InvalidValue }
 func (t *terpMulti) EvalSeq(fr *Frame) T {
 	MultiEvalSeqCounter.Incr()
 	if t.seq == nil {
