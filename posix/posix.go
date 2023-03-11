@@ -78,9 +78,6 @@ func (t *terpFile) GetAt(key T) T {
 func (t *terpFile) PutAt(value T, key T) {
 	panic("a terpFile cannot PutAt")
 }
-func (t *terpFile) QuickReflectValue() R.Value {
-	panic("a terpFile cannot QuickReflectValue")
-}
 func (t terpFile) EvalSeq(fr *Frame) T         { return Parse2EvalSeqStr(fr, t.String()) }
 func (t terpFile) EvalExpr(fr *Frame) T        { return Parse2EvalExprStr(fr, t.String()) }
 func (t terpFile) Apply(fr *Frame, args []T) T { panic("Cannot apply terpFile as command") }
