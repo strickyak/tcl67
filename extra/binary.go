@@ -6,6 +6,29 @@ import (
 	. "github.com/strickyak/tcl67/tcl"
 )
 
+func cmdBinarySplit(fr *Frame, argv []T) T {
+	a, sz := Arg2(argv)
+	var z []T
+	bb := []byte(a.String())
+	size := sz.Int()
+	AssertGT(size, 0)
+
+	for len(bb) > 0 {
+		lenbb := int64(len(bb))
+		n := size
+		if lenbb < size {
+			n = lenbb
+		}
+		// log.Printf("=== lenbb=%d size=%d n=%d bb=%#v", lenbb, size, n, bb)
+		z = append(z, MkString(string(bb[:n])))
+		// log.Printf("=== z=%#v", z)
+		bb = bb[n:]
+		// log.Printf("=== bb=%#v", bb)
+	}
+
+	return MkList(z)
+}
+
 func cmdBinaryExplode(fr *Frame, argv []T) T {
 	a := Arg1(argv)
 	var z []T
@@ -49,9 +72,10 @@ func cmdBinaryFormat(fr *Frame, argv []T) T {
 }
 
 var binaryEnsemble = []EnsembleItem{
-	EnsembleItem{Name: "format", Cmd: cmdBinaryFormat},
-	EnsembleItem{Name: "explode", Cmd: cmdBinaryExplode},
-	EnsembleItem{Name: "implode", Cmd: cmdBinaryImplode},
+	{Name: "split", Cmd: cmdBinarySplit},
+	{Name: "format", Cmd: cmdBinaryFormat},
+	{Name: "explode", Cmd: cmdBinaryExplode},
+	{Name: "implode", Cmd: cmdBinaryImplode},
 }
 
 func init() {
