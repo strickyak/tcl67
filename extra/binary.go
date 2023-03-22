@@ -11,7 +11,7 @@ func cmdBinarySplit(fr *Frame, argv []T) T {
 	var z []T
 	bb := []byte(a.String())
 	size := sz.Int()
-	AssertGT(size, 0)
+	CheckGT(size, 0)
 
 	for len(bb) > 0 {
 		lenbb := int64(len(bb))
@@ -19,11 +19,8 @@ func cmdBinarySplit(fr *Frame, argv []T) T {
 		if lenbb < size {
 			n = lenbb
 		}
-		// log.Printf("=== lenbb=%d size=%d n=%d bb=%#v", lenbb, size, n, bb)
 		z = append(z, MkString(string(bb[:n])))
-		// log.Printf("=== z=%#v", z)
 		bb = bb[n:]
-		// log.Printf("=== bb=%#v", bb)
 	}
 
 	return MkList(z)

@@ -25,10 +25,6 @@ func StrEach(vec []any) string {
 	return b.String()
 }
 
-//func Repr(a any) string {
-//return fmt.Sprintf("%#v", a)
-//}
-
 func GiveInfo(extra ...any) string {
 	if len(extra) == 0 {
 		return ""
@@ -36,38 +32,38 @@ func GiveInfo(extra ...any) string {
 	return fmt.Sprintf(" info: %s", StrEach(extra))
 }
 
-func AssertEQ[N NUMBER](a, b N, extra ...any) {
+func CheckEQ[N NUMBER](a, b N, extra ...any) {
 	if !(a == b) {
-		log.Panicf("FAILED Assertion (%s) == (%s) %s", Str(a), Str(b), GiveInfo(extra))
+		log.Panicf("CHECK FAILS: (%s) EQ (%s) %s", Str(a), Str(b), GiveInfo(extra))
 	}
 }
 
-func AssertNE[N NUMBER](a, b N, extra ...any) {
+func CheckNE[N NUMBER](a, b N, extra ...any) {
 	if !(a != b) {
-		log.Panicf("FAILED Assertion (%s) != (%s) %s", Str(a), Str(b), GiveInfo(extra))
+		log.Panicf("CHECK FAILS: (%s) NE (%s) %s", Str(a), Str(b), GiveInfo(extra))
 	}
 }
 
-func AssertLE[N NUMBER](a, b N, extra ...any) {
+func CheckLE[N NUMBER](a, b N, extra ...any) {
 	if !(a <= b) {
-		log.Panicf("FAILED Assertion (%s) <= (%s) %s", Str(a), Str(b), GiveInfo(extra))
+		log.Panicf("CHECK FAILS: (%s) LE (%s) %s", Str(a), Str(b), GiveInfo(extra))
 	}
 }
 
-func AssertLT[N NUMBER](a, b N, extra ...any) {
+func CheckLT[N NUMBER](a, b N, extra ...any) {
 	if !(a < b) {
-		log.Panicf("FAILED Assertion (%s) < (%s) %s", Str(a), Str(b), GiveInfo(extra))
+		log.Panicf("CHECK FAILS: (%s) LT (%s) %s", Str(a), Str(b), GiveInfo(extra))
 	}
 }
 
-func AssertGE[N NUMBER](a, b N, extra ...any) {
+func CheckGE[N NUMBER](a, b N, extra ...any) {
 	if !(a >= b) {
-		log.Panicf("FAILED Assertion (%s) >= (%s) %s", Str(a), Str(b), GiveInfo(extra))
+		log.Panicf("CHECK FAILS: (%s) GE (%s) %s", Str(a), Str(b), GiveInfo(extra))
 	}
 }
 
-func AssertGT[N NUMBER](a, b N, extra ...any) {
+func CheckGT[N NUMBER](a, b N, extra ...any) {
 	if !(a > b) {
-		log.Panicf("FAILED Assertion (%s) > (%s) %s", Str(a), Str(b), GiveInfo(extra))
+		log.Panicf("CHECK FAILS: (%s) GT (%s) %s", Str(a), Str(b), GiveInfo(extra))
 	}
 }
