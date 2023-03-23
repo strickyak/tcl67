@@ -430,21 +430,55 @@ func (t terpString) Float() float64 {
 	}
 	return z
 }
-func (t terpString) Int() int64 {
-	z, err := strconv.ParseInt(t.s, 10, 64)
+
+func SmartParseInt(s string) int64 {
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		z, err := strconv.ParseInt(s[2:], 16, 64)
+		if err != nil {
+			panic(err)
+		}
+		return z
+	}
+	if strings.HasPrefix(s, "0") {
+		z, err := strconv.ParseInt(s[1:], 8, 64)
+		if err != nil {
+			panic(err)
+		}
+		return z
+	}
+	z, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		panic(err)
 	}
 	return z
 }
-func (t terpString) Uint() uint64 {
-	// First try unsigned parse.
-	z, err := strconv.ParseUint(t.s, 10, 64)
-	if err == nil {
+func SmartParseUint(s string) uint64 {
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		z, err := strconv.ParseUint(s[2:], 16, 64)
+		if err != nil {
+			panic(err)
+		}
 		return z
 	}
-	// Then try signed parse.
-	return uint64(t.Int())
+	if strings.HasPrefix(s, "0") {
+		z, err := strconv.ParseUint(s[1:], 8, 64)
+		if err != nil {
+			panic(err)
+		}
+		return z
+	}
+	z, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	return z
+}
+
+func (t terpString) Int() int64 {
+	return SmartParseInt(t.s)
+}
+func (t terpString) Uint() uint64 {
+	return SmartParseUint(t.s)
 }
 func (t terpString) IsQuickInt() bool    { return false }
 func (t terpString) IsQuickNumber() bool { return false }

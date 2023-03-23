@@ -1949,9 +1949,11 @@ func Log(fr *Frame, levelStr string, message string) {
 		panic(Sprintf("Log level should be 'p', 'f', or in '0'..'9' but is %q", level))
 	}
 
-	if level > fr.G.Verbosity {
-		return // Not enough verbosity for this message.
-	}
+	/*
+		if level > fr.G.Verbosity {
+			return // Not enough verbosity for this message.
+		}
+	*/
 
 	if fr.G.Logger == nil {
 		logName := fr.G.LogName

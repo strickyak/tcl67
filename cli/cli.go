@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
@@ -70,9 +71,7 @@ func Main() {
 		scriptName = flag.Arg(0)
 		contents, err := ioutil.ReadFile(scriptName)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot read file %s: %v", scriptName, err)
-			os.Exit(2)
-			return
+			log.Fatalf("Cannot read file %s: %v", scriptName, err)
 		}
 		saveArgvStarting(fr, 1)
 
@@ -97,21 +96,25 @@ func Main() {
 			// FuncFilterInputRune: filterInput,
 		})
 		if err != nil {
-			panic(err)
+			log.Fatalf("Cannot create readline object: %v", err)
 		}
 		defer rl.Close()
 
+		i := 1
 		for {
 			line, err := rl.Readline()
 			if err != nil {
 				if err != io.EOF {
-					fmt.Fprintf(os.Stderr, "*** ERROR in Readline: %s\n", err.Error())
+					log.Fatalf("*** ERROR in Readline: %s\n", err.Error())
 				}
 				goto End
 			}
 			result := EvalStringOrPrintError(fr, string(line))
-			if result != "" { // Traditionally, if result is empty, tclsh doesn't print.
-				fmt.Println(result)
+			resultStr := result.String()
+			if resultStr != "" { // Traditionally, if result is empty, tclsh doesn't print.
+				fmt.Printf("$%d = %s\n", i, resultStr)
+				fr.SetVar(tcl.Str(i), result)
+				i++
 			}
 		}
 	}
@@ -132,24 +135,23 @@ func logAllCounters() {
 	if *testFlag {
 		tcl.MustMutex.Lock()
 		if tcl.MustFails > 0 {
-			fmt.Fprintf(os.Stderr, "TEST FAILS: %q succeeds=%d fails=%d\n", scriptName, tcl.MustSucceeds, tcl.MustFails)
-			os.Exit(1)
+			log.Fatalf("TEST FAILS: %q succeeds=%d fails=%d\n", scriptName, tcl.MustSucceeds, tcl.MustFails)
 		}
-		fmt.Fprintf(os.Stderr, "Test Done: %q succeeds=%d\n", scriptName, tcl.MustSucceeds)
+		log.Printf("Test Done: %q succeeds=%d\n", scriptName, tcl.MustSucceeds)
 		tcl.MustMutex.Unlock()
 	}
 }
 
-func EvalStringOrPrintError(fr *tcl.Frame, cmd string) (out string) {
+func EvalStringOrPrintError(fr *tcl.Frame, cmd string) (out tcl.T) {
 	if *recoverFlag {
 		defer func() {
 			if r := recover(); r != nil {
 				fmt.Fprintln(os.Stderr, "ERROR: ", r) // Error to stderr.
-				out = ""
+				out = tcl.Empty
 				return
 			}
 		}()
 	}
 
-	return fr.Eval(tcl.MkString(cmd)).String()
+	return fr.Eval(tcl.MkString(cmd))
 }

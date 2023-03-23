@@ -1,6 +1,7 @@
 package extra
 
 import (
+	"io/ioutil"
 	"log"
 
 	. "github.com/strickyak/tcl67/tcl"
@@ -25,6 +26,34 @@ func cmdBinarySplit(fr *Frame, argv []T) T {
 
 	return MkList(z)
 }
+func cmdBinaryJoin(fr *Frame, argv []T) T {
+	args := Arg0v(argv)
+	var z []byte
+	for _, a := range args {
+		for _, b := range a.List() {
+			z = append(z, []byte(b.String())...)
+		}
+	}
+	return MkString(string(z))
+}
+
+func cmdBinaryReadfile(fr *Frame, argv []T) T {
+	name := Arg1(argv)
+	contents, err := ioutil.ReadFile(name.String())
+	if err != nil {
+		log.Panicf("binary readfile: cannot read file %q: %v", name, err)
+	}
+	return MkString(string(contents))
+}
+
+func cmdBinaryWritefile(fr *Frame, argv []T) T {
+	name, contents := Arg2(argv)
+	err := ioutil.WriteFile(name.String(), []byte(contents.String()), 0777)
+	if err != nil {
+		log.Panicf("binary writefile: cannot write file %q: %v", name, err)
+	}
+	return Empty
+}
 
 func cmdBinaryExplode(fr *Frame, argv []T) T {
 	a := Arg1(argv)
@@ -44,11 +73,35 @@ func cmdBinaryImplode(fr *Frame, argv []T) T {
 	return MkString(string(bb))
 }
 
+func cmdBinaryScan(fr *Frame, argv []T) T {
+	sT, fT, vars := Arg2v(argv)
+	s := sT.String()
+
+	for _, c := range fT.String() {
+		switch c {
+		case 'c':
+			fr.SetVar(vars[0].String(), MkInt(int64(s[0])))
+			s = s[1:]
+			vars = vars[1:]
+
+		case 'S':
+			hi, lo := int64(s[0]), int64(s[1])
+			fr.SetVar(vars[0].String(), MkInt((hi<<8)|lo))
+			s = s[2:]
+			vars = vars[1:]
+
+		default:
+			log.Panicf("Bad format char %q in cmdBinaryScan", c)
+		}
+	}
+	return Empty
+}
+
 func cmdBinaryFormat(fr *Frame, argv []T) T {
-	f, args := Arg1v(argv)
+	fT, args := Arg1v(argv)
 	var bb []byte
 
-	for _, c := range f.String() {
+	for _, c := range fT.String() {
 		switch c {
 		case 'c':
 			a := args[0]
@@ -61,7 +114,7 @@ func cmdBinaryFormat(fr *Frame, argv []T) T {
 			x := uint(a.Int())
 			bb = append(bb, byte(x>>8), byte(x))
 		default:
-			log.Panicf("Bad format char %d in cmdBinaryFormat", c)
+			log.Panicf("Bad format char %q in cmdBinaryFormat", c)
 		}
 	}
 
@@ -70,9 +123,13 @@ func cmdBinaryFormat(fr *Frame, argv []T) T {
 
 var binaryEnsemble = []EnsembleItem{
 	{Name: "split", Cmd: cmdBinarySplit},
-	{Name: "format", Cmd: cmdBinaryFormat},
+	{Name: "join", Cmd: cmdBinaryJoin},
 	{Name: "explode", Cmd: cmdBinaryExplode},
 	{Name: "implode", Cmd: cmdBinaryImplode},
+	{Name: "readfile", Cmd: cmdBinaryReadfile},
+	{Name: "writefile", Cmd: cmdBinaryWritefile},
+	{Name: "scan", Cmd: cmdBinaryScan},
+	{Name: "format", Cmd: cmdBinaryFormat},
 }
 
 func init() {
