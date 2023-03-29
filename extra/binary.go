@@ -38,10 +38,19 @@ func cmdBinaryJoin(fr *Frame, argv []T) T {
 }
 
 func cmdBinaryReadfile(fr *Frame, argv []T) T {
-	name := Arg1(argv)
+	name, more := Arg1v(argv)
 	contents, err := ioutil.ReadFile(name.String())
 	if err != nil {
 		log.Panicf("binary readfile: cannot read file %q: %v", name, err)
+	}
+	switch len(more) {
+	case 0:
+		break
+	case 1: // offset
+		contents = contents[more[0].Int():]
+	case 2: // offset, size
+		contents = contents[more[0].Int():]
+		contents = contents[:more[1].Int()]
 	}
 	return MkString(string(contents))
 }
